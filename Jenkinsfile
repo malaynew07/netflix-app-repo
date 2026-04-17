@@ -24,17 +24,27 @@ pipeline {
             }
         }
         stage('Update Manifest') {
-            steps {
-                // This script updates the image tag in your second Git repo
-                sh """
-                git clone https://github.com/your-user/netflix-gitops-manifests.git
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'github-creds', passwordVariable: 'GIT_PASS', usernameVariable: 'GIT_USER')]) {
+            sh """
+                # Clean up any old clones first
+                rm -rf netflix-gitops-manifests
+                
+                # Clone using the credentials in the URL
+                git clone https://${GIT_USER}:${GIT_PASS}@github.com/${GIT_USER}/netflix-gitops-manifests.git
+                
                 cd netflix-gitops-manifests
-                sed -i 's|image: .*|image: ${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER}|' deployment.yaml
+                
+                # Update the image tag in deployment.yaml
+                sed -i 's|image: .*|image: ${DOCKER_HUB_USER}/netflix-clone:${env.BUILD_NUMBER}|' deployment.yaml
+                
+                # Commit and Push
+                git config user.email "jenkins@devops.com"
+                git config user.name "Jenkins-CI"
                 git add deployment.yaml
-                git commit -m 'Update image to version ${BUILD_NUMBER}'
+                git commit -m "Update image to version ${env.BUILD_NUMBER}"
                 git push origin main
-                """
-            }
+            """
         }
     }
 }
